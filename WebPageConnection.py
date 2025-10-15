@@ -9,7 +9,6 @@ from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor
 from xgboost import XGBRegressor
-
 # App title
 st.title("📈  Hello! Share Market")
 
