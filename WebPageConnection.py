@@ -10,9 +10,8 @@ from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor
 from xgboost import XGBRegressor
 
-
 # App title
-st.title("📈  Hello! Share Market")
+st.title("📈 Hello! Share Market")
 
 # Sidebar
 st.sidebar.header("Upload CSV Data or Use Sample")
@@ -21,8 +20,6 @@ use_example = st.sidebar.checkbox("Use example dataset")
 # Load data
 if use_example:
     df = sns.load_dataset('iris').dropna()
-   
-
     st.success("Loaded sample dataset: 'iris'")
 else:
     uploaded_file = st.sidebar.file_uploader("Upload your CSV file", type=['csv'])
@@ -65,7 +62,9 @@ scaler = StandardScaler()
 X_scaled = scaler.fit_transform(X)
 
 # Split data
-X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(
+    X_scaled, y, test_size=0.2, random_state=42
+)
 
 # --- Model selection ---
 st.sidebar.header("⚙️ Model Settings")
@@ -93,7 +92,7 @@ elif model_choice == "XGBoost":
 model.fit(X_train, y_train)
 y_pred = model.predict(X_test)
 
-# Evaluate
+# Evaluate model
 mse = mean_squared_error(y_test, y_pred)
 r2 = r2_score(y_test, y_pred)
 accuracy = r2 * 100
@@ -106,24 +105,25 @@ st.write(f"Model Accuracy: {accuracy:.2f}%")
 
 # --- Plot ---
 st.subheader("📉 Actual vs Predicted")
-ax = plt.subplots()
-ax.scatter(y_test, y_pred, color='blue', label='Predicted')
+fig, ax = plt.subplots()
 
+# Plot actual (red) and predicted (blue)
+ax.scatter(y_test, y_test, color='red', label='Actual', alpha=0.6)
+ax.scatter(y_test, y_pred, color='blue', label='Predicted', alpha=0.6)
+
+# Axis and legend
 ax.set_xlabel("Actual Values")
 ax.set_ylabel("Predicted Values")
 ax.set_title(f"Actual vs Predicted ({model_choice})")
-ax.legend()
-st.pyplot(fig)
+ax.legend(loc="upper right")
 
+# Show plot
+st.pyplot(fig)
 
 # --- Footer ---
 st.markdown("---")
 st.markdown(
     """
     <div style='text-align: center; padding-top: 10px;'>
-        <p>Developed with  by <b>Sumiya Ahasan</b></p>
-        <p style='font-size:13px;'>© 2025 Share Market ML App | Powered by Streamlit & XGBoost</p>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+        <p>Developed with by <b>Sumiya Ahasan</b></p>
+        <p style='font-size:13px;'>© 2025 Share Market ML App | Powere
