@@ -106,7 +106,7 @@ st.write(f"Model Accuracy: {accuracy:.2f}%")
 
 # --- Plot ---
 st.subheader("📉 Actual vs Predicted")
-fig, ax = plt.subplots()
+ax = plt.subplots()
 ax.scatter(y_test, y_pred, color='blue', label='Predicted')
 
 ax.set_xlabel("Actual Values")
