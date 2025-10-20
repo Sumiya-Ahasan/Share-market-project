@@ -3,31 +3,27 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import requests
+import io
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor
 from xgboost import XGBRegressor
-import gdown
-import os
 
 # --- App Title ---
 st.title("📈 Share Market Prediction App")
 
-# --- Google Drive Dataset Download ---
-file_id = "1006n43OyDiOzLsKH-deZS-HOi4P6KnbS"  # Your file ID
-download_url = f"https://drive.google.com/uc?id={file_id}"
-dataset_path = "dataset.csv"
+# --- Load Dataset from Google Drive ---
+FILE_ID = "1006n43OyDiOzLsKH-deZS-HOi4P6KnbS"  # your file ID
+URL = f"https://drive.google.com/uc?export=download&id={FILE_ID}"
 
-# --- Download only if file doesn't exist ---
-if not os.path.exists(dataset_path):
-    with st.spinner("📦 Downloading dataset from Google Drive..."):
-        gdown.download(download_url, dataset_path, quiet=False)
-
-# --- Load Dataset ---
 try:
-    df = pd.read_csv(dataset_path)
+    st.info("📦 Loading dataset from Google Drive...")
+    response = requests.get(URL)
+    response.raise_for_status()  # check for errors
+    df = pd.read_csv(io.StringIO(response.text))
     st.success("✅ Dataset loaded successfully from Google Drive!")
 except Exception as e:
     st.error(f"⚠️ Failed to load dataset: {e}")
