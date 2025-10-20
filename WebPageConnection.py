@@ -1,110 +1,118 @@
 import streamlit as st
+import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor
 from xgboost import XGBRegressor
-from sklearn.metrics import r2_score, mean_squared_error
-from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import train_test_split
 
 # --- App Title ---
-st.title("📈 Share Market Best Model Predictor")
-st.write("Enter past closing prices — the app will test multiple models and pick the best one for prediction!")
+st.title("📈 Hello! Share Market")
 
-# --- User Input Section ---
-st.subheader("💰 Enter Previous Closing Prices")
+# --- Load Dataset Automatically from GitHub ---
+DATA_URL = "https://raw.githubusercontent.com/Sumiya-Ahasan/Share-market-project/main/your_dataset.csv"
 
-num_days = st.number_input("How many previous days' closing prices do you want to enter?", min_value=2, max_value=30, value=5, step=1)
+try:
+    df = pd.read_csv(DATA_URL)
+    st.success("✅ Dataset loaded successfully from GitHub!")
+except Exception as e:
+    st.error(f"⚠️ Failed to load dataset from GitHub: {e}")
+    st.stop()
 
-st.write(f"Please enter the closing prices for the last {num_days} days:")
-prices = []
-for i in range(int(num_days)):
-    value = st.number_input(f"Close Price - Day {i+1}", value=0.0, format="%.2f")
-    prices.append(value)
+# --- Dataset Info ---
+st.subheader("📊 Dataset Preview")
+st.write(df.head())
+st.markdown(f"**Shape:** {df.shape[0]} rows × {df.shape[1]} columns")
 
-# --- Prediction Button ---
-if st.button("🔮 Predict Next Day Price"):
-    try:
-        # Convert to numpy array
-        prices = np.array(prices)
+# --- Model Feature Selection ---
+numeric_cols = df.select_dtypes(include=np.number).columns.tolist()
+if len(numeric_cols) < 2:
+    st.error("Dataset must contain at least two numeric columns for regression.")
+    st.stop()
 
-        # Create simple dataset for supervised learning (predict next from previous values)
-        X = []
-        y = []
-        for i in range(len(prices) - 1):
-            X.append(prices[:i+1])
-            y.append(prices[i+1])
+# --- Target and Feature Selection ---
+target = st.selectbox("🎯 Select Target Variable", numeric_cols)
+features = st.multiselect(
+    "🧮 Select Input Feature Columns",
+    [col for col in numeric_cols if col != target],
+    default=[col for col in numeric_cols if col != target]
+)
 
-        # Pad shorter sequences to same length
-        max_len = max(len(x) for x in X)
-        X_padded = np.array([np.pad(x, (0, max_len - len(x)), 'constant', constant_values=0) for x in X])
-        y = np.array(y)
+if len(features) == 0:
+    st.error("Please select at least one input feature.")
+    st.stop()
 
-        # Scale data
-        scaler = StandardScaler()
-        X_scaled = scaler.fit_transform(X_padded)
+# --- Prepare Data ---
+df = df[features + [target]].dropna()
+X = df[features]
+y = df[target]
 
-        # Split for evaluation
-        X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
+# --- Scale Features ---
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
 
-        # Define models
-        models = {
-            "Linear Regression": LinearRegression(),
-            "Random Forest": RandomForestRegressor(n_estimators=200, random_state=42),
-            "XGBoost": XGBRegressor(n_estimators=200, learning_rate=0.1, max_depth=4, random_state=42)
-        }
+# --- Split Data ---
+X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
 
-        # Train and evaluate models
-        results = {}
-        for name, model in models.items():
-            model.fit(X_train, y_train)
-            y_pred = model.predict(X_test)
-            r2 = r2_score(y_test, y_pred)
-            mse = mean_squared_error(y_test, y_pred)
-            results[name] = {"model": model, "r2": r2, "mse": mse}
+# --- Model Selection Sidebar ---
+st.sidebar.header("⚙️ Model Settings")
+model_choice = st.sidebar.selectbox(
+    "Select a Regression Model",
+    ["Linear Regression", "Random Forest", "XGBoost"]
+)
 
-        # Find best model
-        best_model_name = max(results, key=lambda x: results[x]["r2"])
-        best_model = results[best_model_name]["model"]
-        best_r2 = results[best_model_name]["r2"]
-        best_mse = results[best_model_name]["mse"]
+# --- Initialize Models ---
+if model_choice == "Linear Regression":
+    model = LinearRegression()
+elif model_choice == "Random Forest":
+    model = RandomForestRegressor(n_estimators=200, random_state=42)
+elif model_choice == "XGBoost":
+    model = XGBRegressor(
+        n_estimators=200,
+        learning_rate=0.1,
+        max_depth=4,
+        random_state=42,
+        subsample=0.8,
+        colsample_bytree=0.8
+    )
 
-        # Prepare input for next-day prediction
-        user_input = np.array(prices).reshape(1, -1)
-        if user_input.shape[1] < X_padded.shape[1]:
-            user_input = np.pad(user_input, ((0, 0), (0, X_padded.shape[1] - user_input.shape[1])), 'constant', constant_values=0)
-        user_input_scaled = scaler.transform(user_input)
-        next_day_price = best_model.predict(user_input_scaled)[0]
+# --- Train Model ---
+model.fit(X_train, y_train)
+y_pred = model.predict(X_test)
 
-        # Display best model and prediction
-        st.success(f"🏆 Best Model: **{best_model_name}** (R² = {best_r2:.3f})")
-        st.write(f"💹 Predicted Next Day Close Price: **{next_day_price:.2f}**")
+# --- Evaluate Model ---
+mse = mean_squared_error(y_test, y_pred)
+r2 = r2_score(y_test, y_pred)
+accuracy = r2 * 100
 
-        # --- Plot ---
-        st.subheader("📊 Price Trend Visualization")
-        fig, ax = plt.subplots()
-        days = [f"Day {i+1}" for i in range(len(prices))] + ["Predicted Next Day"]
-        all_prices = list(prices) + [next_day_price]
+# --- Display Results ---
+st.subheader(f"📊 Model Evaluation: {model_choice}")
+st.write(f"Mean Squared Error: {mse:.2f}")
+st.write(f"R² Score: {r2:.2f}")
+st.write(f"Model Accuracy: {accuracy:.2f}%")
 
-        ax.plot(days, all_prices, marker='o', linestyle='-', color='blue', label='Price Trend')
-        ax.scatter(days[-1], all_prices[-1], color='red', label='Predicted Price', s=100)
-        ax.set_xlabel("Days")
-        ax.set_ylabel("Price")
-        ax.set_title(f"Actual Prices & Predicted Next Price ({best_model_name})")
-        ax.legend()
-        st.pyplot(fig)
-
-    except Exception as e:
-        st.error(f"⚠️ Error: {e}")
+# --- Plot ---
+st.subheader("📉 Actual vs Predicted")
+fig, ax = plt.subplots()
+ax.scatter(y_test, y_pred, color='blue', label='Predicted')
+ax.plot(y_test, y_test, color='red', label='Actual')
+ax.set_xlabel("Actual Values")
+ax.set_ylabel("Predicted Values")
+ax.set_title(f"Actual vs Predicted ({model_choice})")
+ax.legend()
+st.pyplot(fig)
 
 # --- Footer ---
 st.markdown("---")
 st.markdown(
     """
     <div style='text-align: center; padding-top: 10px;'>
-        <p>Developed with ❤️ by <b>Sumiya Ahasan</b></p>
-        <p style='font-size:13px;'>© 2025 Share Market ML App | Auto Model Selection</p>
+        <p>Developed with ❤️ by <b>Md. Habibur Rahman</b></p>
+        <p style='font-size:13px;'>© 2025 Share Market ML App | Powered by Streamlit & XGBoost</p>
     </div>
     """,
     unsafe_allow_html=True
