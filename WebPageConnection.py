@@ -107,4 +107,31 @@ st.subheader("📉 Actual vs Predicted (Best Model)")
 y_pred_best = best_model.predict(X_test)
 
 fig, ax = plt.subplots()
-ax.scatter(y_tes_
+ax.scatter(y_test, y_pred_best, color='blue', label='Predicted')
+ax.plot(y_test, y_test, color='red', label='Actual')
+ax.set_xlabel("Actual Values")
+ax.set_ylabel("Predicted Values")
+ax.set_title(f"Actual vs Predicted ({best_model_name})")
+ax.legend()
+st.pyplot(fig)
+
+# --- Comparison Table ---
+st.subheader("📋 Model Comparison Summary")
+comparison_df = pd.DataFrame({
+    "Model": list(results.keys()),
+    "R² Score": [v["r2"] for v in results.values()],
+    "MSE": [v["mse"] for v in results.values()]
+})
+st.dataframe(comparison_df.style.format({"R² Score": "{:.4f}", "MSE": "{:.2f}"}))
+
+# --- Footer ---
+st.markdown("---")
+st.markdown(
+    """
+    <div style='text-align: center; padding-top: 10px;'>
+        <p>Developed with ❤️ by <b>Sumiya Ahasan</b></p>
+        <p style='font-size:13px;'>© 2025 Share Market ML App | Auto Model Selection | Powered by Streamlit & XGBoost</p>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
