@@ -1,60 +1,102 @@
 import streamlit as st
 import numpy as np
-import joblib
-import os
-import urllib.request
+import matplotlib.pyplot as plt
+from sklearn.linear_model import LinearRegression
+from sklearn.ensemble import RandomForestRegressor
+from xgboost import XGBRegressor
+from sklearn.metrics import r2_score, mean_squared_error
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
 
 # --- App Title ---
-st.title("📈 Share Market Prediction App")
-st.write("Predict the next day's closing price using your trained model.")
-
-# --- Model File from GitHub ---
-MODEL_URL = "https://raw.githubusercontent.com/Sumiya-Ahasan/Share-market-project/main/best_model.pkl"
-MODEL_PATH = "best_model.pkl"
-
-# --- Download Model if not Found ---
-if not os.path.exists(MODEL_PATH):
-    try:
-        st.info("📦 Downloading trained model from GitHub...")
-        urllib.request.urlretrieve(MODEL_URL, MODEL_PATH)
-        st.success("✅ Model downloaded successfully!")
-    except Exception as e:
-        st.error(f"⚠️ Failed to download model: {e}")
-        st.stop()
-
-# --- Load Model ---
-try:
-    model = joblib.load(MODEL_PATH)
-    st.success("✅ Model loaded successfully!")
-except Exception as e:
-    st.error(f"❌ Error loading model: {e}")
-    st.stop()
+st.title("📈 Share Market Best Model Predictor")
+st.write("Enter past closing prices — the app will test multiple models and pick the best one for prediction!")
 
 # --- User Input Section ---
-st.subheader("🧮 Enter Closing Prices")
+st.subheader("💰 Enter Previous Closing Prices")
 
-# Let the user choose how many days of closing prices they want to input
-num_days = st.number_input("How many previous days' closing prices?", min_value=1, max_value=30, value=6, step=1)
+num_days = st.number_input("How many previous days' closing prices do you want to enter?", min_value=2, max_value=30, value=5, step=1)
 
-# Dynamically create input boxes
-st.write(f"Enter the closing prices for the last {num_days} days:")
-user_inputs = []
+st.write(f"Please enter the closing prices for the last {num_days} days:")
+prices = []
 for i in range(int(num_days)):
     value = st.number_input(f"Close Price - Day {i+1}", value=0.0, format="%.2f")
-    user_inputs.append(value)
+    prices.append(value)
 
-# Convert to NumPy array
-features = np.array(user_inputs).reshape(1, -1)
-
-# --- Prediction ---
-if st.button("🔮 Predict Next Day Close Price"):
+# --- Prediction Button ---
+if st.button("🔮 Predict Next Day Price"):
     try:
-        # Try predicting directly
-        prediction = model.predict(features)[0]
-        st.success(f"💹 Predicted Next Day Close Price: **{prediction:.2f}**")
+        # Convert to numpy array
+        prices = np.array(prices)
+
+        # Create simple dataset for supervised learning (predict next from previous values)
+        X = []
+        y = []
+        for i in range(len(prices) - 1):
+            X.append(prices[:i+1])
+            y.append(prices[i+1])
+
+        # Pad shorter sequences to same length
+        max_len = max(len(x) for x in X)
+        X_padded = np.array([np.pad(x, (0, max_len - len(x)), 'constant', constant_values=0) for x in X])
+        y = np.array(y)
+
+        # Scale data
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(X_padded)
+
+        # Split for evaluation
+        X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
+
+        # Define models
+        models = {
+            "Linear Regression": LinearRegression(),
+            "Random Forest": RandomForestRegressor(n_estimators=200, random_state=42),
+            "XGBoost": XGBRegressor(n_estimators=200, learning_rate=0.1, max_depth=4, random_state=42)
+        }
+
+        # Train and evaluate models
+        results = {}
+        for name, model in models.items():
+            model.fit(X_train, y_train)
+            y_pred = model.predict(X_test)
+            r2 = r2_score(y_test, y_pred)
+            mse = mean_squared_error(y_test, y_pred)
+            results[name] = {"model": model, "r2": r2, "mse": mse}
+
+        # Find best model
+        best_model_name = max(results, key=lambda x: results[x]["r2"])
+        best_model = results[best_model_name]["model"]
+        best_r2 = results[best_model_name]["r2"]
+        best_mse = results[best_model_name]["mse"]
+
+        # Prepare input for next-day prediction
+        user_input = np.array(prices).reshape(1, -1)
+        if user_input.shape[1] < X_padded.shape[1]:
+            user_input = np.pad(user_input, ((0, 0), (0, X_padded.shape[1] - user_input.shape[1])), 'constant', constant_values=0)
+        user_input_scaled = scaler.transform(user_input)
+        next_day_price = best_model.predict(user_input_scaled)[0]
+
+        # Display best model and prediction
+        st.success(f"🏆 Best Model: **{best_model_name}** (R² = {best_r2:.3f})")
+        st.write(f"💹 Predicted Next Day Close Price: **{next_day_price:.2f}**")
+
+        # --- Plot ---
+        st.subheader("📊 Price Trend Visualization")
+        fig, ax = plt.subplots()
+        days = [f"Day {i+1}" for i in range(len(prices))] + ["Predicted Next Day"]
+        all_prices = list(prices) + [next_day_price]
+
+        ax.plot(days, all_prices, marker='o', linestyle='-', color='blue', label='Price Trend')
+        ax.scatter(days[-1], all_prices[-1], color='red', label='Predicted Price', s=100)
+        ax.set_xlabel("Days")
+        ax.set_ylabel("Price")
+        ax.set_title(f"Actual Prices & Predicted Next Price ({best_model_name})")
+        ax.legend()
+        st.pyplot(fig)
+
     except Exception as e:
-        st.error(f"⚠️ Error making prediction: {e}")
-        st.info("💡 Tip: Make sure the number of inputs matches the number of features the model was trained on.")
+        st.error(f"⚠️ Error: {e}")
 
 # --- Footer ---
 st.markdown("---")
@@ -62,7 +104,7 @@ st.markdown(
     """
     <div style='text-align: center; padding-top: 10px;'>
         <p>Developed with ❤️ by <b>Sumiya Ahasan</b></p>
-        <p style='font-size:13px;'>© 2025 Share Market ML App | Powered by Streamlit</p>
+        <p style='font-size:13px;'>© 2025 Share Market ML App | Auto Model Selection</p>
     </div>
     """,
     unsafe_allow_html=True
