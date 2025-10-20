@@ -1,53 +1,23 @@
-import streamlit as st
-import numpy as np
-import joblib
 import os
+import joblib
+import urllib.request
+import streamlit as st
 
-# --- App Title ---
-st.title("📈 Share Market Prediction App")
-st.write("Predict share market outcomes using your pre-trained model!")
+MODEL_URL  = "https://raw.githubusercontent.com/Sumiya-Ahasan/Share-market-project/main/best_model.pkl"
+MODEL_PATH = "best_model.pkl"
 
-# --- Load Model ---
-model_path = "best_model.pkl"
-
-if os.path.exists(model_path):
-    model = joblib.load(model_path)
-    st.success("✅ Model loaded successfully!")
-else:
-    st.error("❌ Model file not found! Please make sure 'best_model.pkl' is in the same directory.")
-    st.stop()
-
-# --- Feature Input Section ---
-st.subheader("🧮 Enter Feature Values")
-
-# 🔹 Replace these with your actual feature names
-feature_names = ["Open", "High", "Low", "Volume"]
-
-# Dynamically create input fields
-inputs = []
-for feature in feature_names:
-    value = st.number_input(f"Enter {feature} value:", value=0.0)
-    inputs.append(value)
-
-# Convert inputs to numpy array
-input_data = np.array(inputs).reshape(1, -1)
-
-# --- Prediction Section ---
-if st.button("🔮 Predict"):
+if not os.path.exists(MODEL_PATH):
     try:
-        prediction = model.predict(input_data)[0]
-        st.success(f"💹 Predicted Value: **{prediction:.2f}**")
+        st.info("📦 Downloading the model from GitHub…")
+        urllib.request.urlretrieve(MODEL_URL, MODEL_PATH)
+        st.success("✅ Model downloaded successfully!")
     except Exception as e:
-        st.error(f"⚠️ Error making prediction: {e}")
+        st.error(f"⚠️ Failed to download model: {e}")
+        st.stop()
 
-# --- Footer ---
-st.markdown("---")
-st.markdown(
-    """
-    <div style='text-align: center; padding-top: 10px;'>
-        <p>Developed with ❤️ by <b>Sumiya Ahasan</b></p>
-        <p style='font-size:13px;'>© 2025 Share Market ML App | Powered by Streamlit</p>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+try:
+    model = joblib.load(MODEL_PATH)
+    st.success("✅ Model loaded successfully!")
+except Exception as e:
+    st.error(f"❌ Error loading model: {e}")
+    st.stop()
