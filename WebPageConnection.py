@@ -9,17 +9,28 @@ from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor
 from xgboost import XGBRegressor
+import gdown
+import os
 
 # --- App Title ---
-st.title("📈 Hello! Share Market")
+st.title("📈 Share Market Prediction App")
 
-# --- Load Dataset Automatically from GitHub ---
-https://github.com/Sumiya-Ahasan/Share-market-project/blob/main/best_model.pkl
+# --- Google Drive Dataset Download ---
+file_id = "1006n43OyDiOzLsKH-deZS-HOi4P6KnbS"  # Your file ID
+download_url = f"https://drive.google.com/uc?id={file_id}"
+dataset_path = "dataset.csv"
+
+# --- Download only if file doesn't exist ---
+if not os.path.exists(dataset_path):
+    with st.spinner("📦 Downloading dataset from Google Drive..."):
+        gdown.download(download_url, dataset_path, quiet=False)
+
+# --- Load Dataset ---
 try:
-    df = pd.read_csv(DATA_URL)
-    st.success("✅ Dataset loaded successfully from GitHub!")
+    df = pd.read_csv(dataset_path)
+    st.success("✅ Dataset loaded successfully from Google Drive!")
 except Exception as e:
-    st.error(f"⚠️ Failed to load dataset from GitHub: {e}")
+    st.error(f"⚠️ Failed to load dataset: {e}")
     st.stop()
 
 # --- Dataset Info ---
@@ -90,9 +101,9 @@ accuracy = r2 * 100
 
 # --- Display Results ---
 st.subheader(f"📊 Model Evaluation: {model_choice}")
-st.write(f"Mean Squared Error: {mse:.2f}")
-st.write(f"R² Score: {r2:.2f}")
-st.write(f"Model Accuracy: {accuracy:.2f}%")
+st.write(f"**Mean Squared Error:** {mse:.2f}")
+st.write(f"**R² Score:** {r2:.2f}")
+st.write(f"**Model Accuracy:** {accuracy:.2f}%")
 
 # --- Plot ---
 st.subheader("📉 Actual vs Predicted")
@@ -110,7 +121,7 @@ st.markdown("---")
 st.markdown(
     """
     <div style='text-align: center; padding-top: 10px;'>
-        <p>Developed with ❤️ by <b>Md. Habibur Rahman</b></p>
+        <p>Developed with ❤️ by <b>Sumiya Ahasan</b></p>
         <p style='font-size:13px;'>© 2025 Share Market ML App | Powered by Streamlit & XGBoost</p>
     </div>
     """,
