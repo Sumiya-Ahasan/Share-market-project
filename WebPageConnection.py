@@ -5,8 +5,8 @@ import os
 import urllib.request
 
 # --- App Title ---
-st.title("📈 Share Market Next Day Prediction")
-st.write("Enter the last 4 days' closing prices to predict the next day's closing price using the trained model.")
+st.title("📈 Share Market Prediction App")
+st.write("Predict the next day's closing price using your trained model.")
 
 # --- Model File from GitHub ---
 MODEL_URL = "https://raw.githubusercontent.com/Sumiya-Ahasan/Share-market-project/main/best_model.pkl"
@@ -31,23 +31,30 @@ except Exception as e:
     st.stop()
 
 # --- User Input Section ---
-st.subheader("🧮 Input Last 4 Days' Closing Prices")
+st.subheader("🧮 Enter Closing Prices")
 
-close1 = st.number_input("Close Price - Day 1", value=0.0, format="%.2f")
-close2 = st.number_input("Close Price - Day 2", value=0.0, format="%.2f")
-close3 = st.number_input("Close Price - Day 3", value=0.0, format="%.2f")
-close4 = st.number_input("Close Price - Day 4", value=0.0, format="%.2f")
+# Let the user choose how many days of closing prices they want to input
+num_days = st.number_input("How many previous days' closing prices?", min_value=1, max_value=30, value=6, step=1)
 
-# Combine inputs into array for prediction
-features = np.array([[close1, close2, close3, close4]])
+# Dynamically create input boxes
+st.write(f"Enter the closing prices for the last {num_days} days:")
+user_inputs = []
+for i in range(int(num_days)):
+    value = st.number_input(f"Close Price - Day {i+1}", value=0.0, format="%.2f")
+    user_inputs.append(value)
 
-# --- Predict Button ---
+# Convert to NumPy array
+features = np.array(user_inputs).reshape(1, -1)
+
+# --- Prediction ---
 if st.button("🔮 Predict Next Day Close Price"):
     try:
+        # Try predicting directly
         prediction = model.predict(features)[0]
         st.success(f"💹 Predicted Next Day Close Price: **{prediction:.2f}**")
     except Exception as e:
         st.error(f"⚠️ Error making prediction: {e}")
+        st.info("💡 Tip: Make sure the number of inputs matches the number of features the model was trained on.")
 
 # --- Footer ---
 st.markdown("---")
