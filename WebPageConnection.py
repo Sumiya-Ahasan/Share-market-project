@@ -14,8 +14,7 @@ from xgboost import XGBRegressor
 st.title("📈 Hello! Share Market")
 
 # --- Load Dataset Automatically from GitHub ---
-DATA_URL = "https://raw.githubusercontent.com/Sumiya-Ahasan/Share-market-project/main/your_dataset.csv"
-
+https://github.com/Sumiya-Ahasan/Share-market-project/blob/main/best_model.pkl
 try:
     df = pd.read_csv(DATA_URL)
     st.success("✅ Dataset loaded successfully from GitHub!")
