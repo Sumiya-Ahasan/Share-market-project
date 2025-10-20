@@ -16,7 +16,7 @@ from xgboost import XGBRegressor
 st.title("📈 Share Market Prediction App (Auto Best Model)")
 
 # --- Load Dataset from Google Drive ---
-FILE_ID = "1006n43OyDiOzLsKH-deZS-HOi4P6KnbS"  # Your Google Drive file ID
+FILE_ID = "1006n43OyDiOzLsKH-deZS-HOi4P6KnbS"  # Your file ID
 URL = f"https://drive.google.com/uc?export=download&id={FILE_ID}"
 
 try:
