@@ -13,16 +13,16 @@ from sklearn.ensemble import RandomForestRegressor
 from xgboost import XGBRegressor
 
 # --- App Title ---
-st.title("📈 Share Market Prediction App")
+st.title("📈 Share Market Prediction App (Auto Best Model)")
 
 # --- Load Dataset from Google Drive ---
-FILE_ID = "1006n43OyDiOzLsKH-deZS-HOi4P6KnbS"  # your file ID
+FILE_ID = "1006n43OyDiOzLsKH-deZS-HOi4P6KnbS"  # Your Google Drive file ID
 URL = f"https://drive.google.com/uc?export=download&id={FILE_ID}"
 
 try:
     st.info("📦 Loading dataset from Google Drive...")
     response = requests.get(URL)
-    response.raise_for_status()  # check for errors
+    response.raise_for_status()
     df = pd.read_csv(io.StringIO(response.text))
     st.success("✅ Dataset loaded successfully from Google Drive!")
 except Exception as e:
@@ -64,20 +64,11 @@ X_scaled = scaler.fit_transform(X)
 # --- Split Data ---
 X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
 
-# --- Model Selection Sidebar ---
-st.sidebar.header("⚙️ Model Settings")
-model_choice = st.sidebar.selectbox(
-    "Select a Regression Model",
-    ["Linear Regression", "Random Forest", "XGBoost"]
-)
-
-# --- Initialize Models ---
-if model_choice == "Linear Regression":
-    model = LinearRegression()
-elif model_choice == "Random Forest":
-    model = RandomForestRegressor(n_estimators=200, random_state=42)
-elif model_choice == "XGBoost":
-    model = XGBRegressor(
+# --- Define Models ---
+models = {
+    "Linear Regression": LinearRegression(),
+    "Random Forest": RandomForestRegressor(n_estimators=200, random_state=42),
+    "XGBoost": XGBRegressor(
         n_estimators=200,
         learning_rate=0.1,
         max_depth=4,
@@ -85,41 +76,35 @@ elif model_choice == "XGBoost":
         subsample=0.8,
         colsample_bytree=0.8
     )
+}
 
-# --- Train Model ---
-model.fit(X_train, y_train)
-y_pred = model.predict(X_test)
+# --- Train and Evaluate Models ---
+results = {}
+st.info("🚀 Training models and comparing performance...")
 
-# --- Evaluate Model ---
-mse = mean_squared_error(y_test, y_pred)
-r2 = r2_score(y_test, y_pred)
-accuracy = r2 * 100
+for name, model in models.items():
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
+    mse = mean_squared_error(y_test, y_pred)
+    r2 = r2_score(y_test, y_pred)
+    results[name] = {"model": model, "mse": mse, "r2": r2}
 
-# --- Display Results ---
-st.subheader(f"📊 Model Evaluation: {model_choice}")
-st.write(f"**Mean Squared Error:** {mse:.2f}")
-st.write(f"**R² Score:** {r2:.2f}")
-st.write(f"**Model Accuracy:** {accuracy:.2f}%")
+# --- Find Best Model ---
+best_model_name = max(results, key=lambda x: results[x]["r2"])
+best_model = results[best_model_name]["model"]
+best_mse = results[best_model_name]["mse"]
+best_r2 = results[best_model_name]["r2"]
+best_accuracy = best_r2 * 100
+
+# --- Display Best Model ---
+st.success(f"🏆 Best Model: **{best_model_name}**")
+st.write(f"**R² Score:** {best_r2:.4f}")
+st.write(f"**Mean Squared Error:** {best_mse:.2f}")
+st.write(f"**Model Accuracy:** {best_accuracy:.2f}%")
 
 # --- Plot ---
-st.subheader("📉 Actual vs Predicted")
-fig, ax = plt.subplots()
-ax.scatter(y_test, y_pred, color='blue', label='Predicted')
-ax.plot(y_test, y_test, color='red', label='Actual')
-ax.set_xlabel("Actual Values")
-ax.set_ylabel("Predicted Values")
-ax.set_title(f"Actual vs Predicted ({model_choice})")
-ax.legend()
-st.pyplot(fig)
+st.subheader("📉 Actual vs Predicted (Best Model)")
+y_pred_best = best_model.predict(X_test)
 
-# --- Footer ---
-st.markdown("---")
-st.markdown(
-    """
-    <div style='text-align: center; padding-top: 10px;'>
-        <p>Developed with ❤️ by <b>Sumiya Ahasan</b></p>
-        <p style='font-size:13px;'>© 2025 Share Market ML App | Powered by Streamlit & XGBoost</p>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+fig, ax = plt.subplots()
+ax.scatter(y_tes_
