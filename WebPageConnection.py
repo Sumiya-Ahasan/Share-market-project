@@ -5,45 +5,34 @@ import matplotlib.pyplot as plt
 import pickle
 import requests
 import io
+
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.impute import SimpleImputer
 from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.linear_model import LinearRegression
+from sklearn.svm import SVR
+from sklearn.ensemble import RandomForestRegressor
+from xgboost import XGBRegressor
 
 st.set_page_config(page_title="Smart Share Market Prediction", page_icon="📊", layout="wide")
-st.title("📊 Smart Share Market Prediction App (Best Model with NaN Fix)")
+st.title("🤖 Smart Share Market Prediction (with ML Pipelines)")
 
 # =============================
-# 🔹 Model & Dataset URLs
+# 🔹 Dataset Link
 # =============================
-MODEL_URL = "https://raw.githubusercontent.com/Sumiya-Ahasan/Share-market-project/main/best_model.pkl"
 DATA_URL = "https://drive.google.com/uc?export=download&id=1006n43OyDiOzLsKH-deZS-HOi4P6KnbS"
 
 # =============================
-# 🔹 Load Model from GitHub
-# =============================
-try:
-    st.subheader("🧠 Loading Trained Model...")
-    response = requests.get(MODEL_URL, timeout=25)
-    response.raise_for_status()
-    model = pickle.loads(response.content)
-    model_name = model.__class__.__name__
-    st.success(f"✅ Model Loaded Successfully: **{model_name}**")
-except Exception as e:
-    st.error(f"❌ Failed to load model: {e}")
-    st.stop()
-
-# =============================
-# 🔹 Load Dataset from Google Drive
+# 🔹 Load Dataset
 # =============================
 try:
     st.subheader("📥 Loading Dataset...")
-    data_response = requests.get(DATA_URL, allow_redirects=True, timeout=25)
-    data_response.raise_for_status()
-    df = pd.read_csv(io.StringIO(data_response.text))
+    response = requests.get(DATA_URL, allow_redirects=True, timeout=25)
+    response.raise_for_status()
+    df = pd.read_csv(io.StringIO(response.text))
 
-    # ✅ FIX: Handle Missing Values (NaN)
-    df = df.fillna(df.mean(numeric_only=True))
-    df = df.fillna(0)
-
-    st.success("✅ Dataset Loaded Successfully (NaN handled)!")
+    st.success("✅ Dataset Loaded Successfully!")
     st.dataframe(df.head())
 except Exception as e:
     st.error(f"⚠️ Failed to load dataset: {e}")
@@ -54,92 +43,114 @@ except Exception as e:
 # =============================
 numeric_cols = df.select_dtypes(include=np.number).columns.tolist()
 if len(numeric_cols) < 2:
-    st.error("❌ Dataset must contain at least two numeric columns.")
+    st.error("❌ Dataset must have at least two numeric columns.")
     st.stop()
 
 target = st.selectbox("🎯 Select Target Variable", numeric_cols, index=len(numeric_cols) - 1)
+X = df.drop(columns=[target])
+y = df[target]
 
 # =============================
-# 🔹 Prepare Features
+# 🔹 Define Pipelines for Each Model
 # =============================
-try:
-    if hasattr(model, "feature_names_in_"):
-        features = list(model.feature_names_in_)
-        for f in features:
-            if f not in df.columns:
-                df[f] = 0
-        X = df[features]
-    else:
-        X = df.drop(columns=[target])
-except Exception as e:
-    st.error(f"Feature preparation failed: {e}")
-    st.stop()
+pipelines = {
+    "Linear Regression": Pipeline([
+        ("imputer", SimpleImputer(strategy="mean")),
+        ("scaler", StandardScaler()),
+        ("model", LinearRegression())
+    ]),
+    "XGBoost Regressor": Pipeline([
+        ("imputer", SimpleImputer(strategy="mean")),
+        ("model", XGBRegressor(random_state=42, n_estimators=200))
+    ]),
+    "Support Vector Machine (SVM)": Pipeline([
+        ("imputer", SimpleImputer(strategy="mean")),
+        ("scaler", StandardScaler()),
+        ("model", SVR(kernel='rbf', C=1.0, epsilon=0.1))
+    ]),
+    "Random Forest": Pipeline([
+        ("imputer", SimpleImputer(strategy="mean")),
+        ("model", RandomForestRegressor(random_state=42, n_estimators=150))
+    ])
+}
 
 # =============================
-# 🔹 Evaluate Model Performance
+# 🔹 Train & Evaluate All Models
 # =============================
-try:
-    st.subheader("📈 Model Evaluation")
-    y_pred = model.predict(X)
+st.subheader("🧠 Training and Evaluating Models...")
 
-    if target in df.columns:
-        y = df[target]
+performance = {}
+for name, pipeline in pipelines.items():
+    try:
+        pipeline.fit(X, y)
+        y_pred = pipeline.predict(X)
         r2 = r2_score(y, y_pred)
         mse = mean_squared_error(y, y_pred)
-        st.write(f"**Model Used:** {model_name}")
-        st.write(f"**R² Score:** {r2:.4f}")
-        st.write(f"**Mean Squared Error:** {mse:.2f}")
-        st.write(f"**Approx Accuracy:** {r2 * 100:.2f}%")
+        performance[name] = {"model": pipeline, "r2": r2, "mse": mse}
+        st.write(f"✅ {name}: R² = {r2:.4f}, MSE = {mse:.2f}")
+    except Exception as e:
+        st.warning(f"⚠️ {name} failed: {e}")
 
-        fig, ax = plt.subplots()
-        ax.scatter(y, y_pred, color='blue', alpha=0.6, label='Predicted')
-        ax.plot(y, y, color='red', label='Actual')
-        ax.set_xlabel("Actual Values")
-        ax.set_ylabel("Predicted Values")
-        ax.set_title(f"Actual vs Predicted ({model_name})")
-        ax.legend()
-        st.pyplot(fig)
-    else:
-        st.info("ℹ️ Target not found, showing only predictions.")
-        st.dataframe(pd.DataFrame({"Predicted": y_pred}))
+# =============================
+# 🔹 Auto Select Best Model
+# =============================
+best_model_name = max(performance, key=lambda k: performance[k]["r2"])
+best_model = performance[best_model_name]["model"]
+best_r2 = performance[best_model_name]["r2"]
+
+st.success(f"🏆 Best Model Selected Automatically: **{best_model_name}** (R² = {best_r2:.4f})")
+
+# =============================
+# 🔹 Plot Actual vs Predicted
+# =============================
+try:
+    y_pred = best_model.predict(X)
+    fig, ax = plt.subplots()
+    ax.scatter(y, y_pred, alpha=0.6, color="blue", label="Predicted")
+    ax.plot(y, y, color="red", label="Actual")
+    ax.set_xlabel("Actual Values")
+    ax.set_ylabel("Predicted Values")
+    ax.set_title(f"Actual vs Predicted ({best_model_name})")
+    ax.legend()
+    st.pyplot(fig)
 except Exception as e:
-    st.error(f"❌ Prediction failed: {e}")
+    st.warning(f"Plotting failed: {e}")
 
 # =============================
 # 🔹 Manual Input Prediction
 # =============================
 st.markdown("---")
-st.subheader("🧮 Try Your Own Input")
+st.subheader("🧮 Try Your Own Input (Auto Pipeline Applied)")
 
-try:
-    if hasattr(model, "feature_names_in_"):
-        input_features = list(model.feature_names_in_)
-    else:
-        input_features = [c for c in df.columns if c != target]
+user_input = {}
+cols = st.columns(2)
+for i, col_name in enumerate(X.columns):
+    with cols[i % 2]:
+        try:
+            default_val = float(df[col_name].mean())
+        except Exception:
+            default_val = 0.0
+        user_input[col_name] = st.number_input(col_name, value=default_val)
 
-    user_input = {}
-    cols = st.columns(2)
+if st.button("🔮 Predict Automatically"):
+    input_df = pd.DataFrame([user_input])
+    prediction = best_model.predict(input_df)[0]
+    st.success(f"📈 Predicted {target}: {prediction:.2f}")
+    st.info(f"🤖 Model Used: **{best_model_name}** (R² = {best_r2:.4f})")
 
-    for i, col_name in enumerate(input_features):
-        with cols[i % 2]:
-            try:
-                default_val = float(df[col_name].mean())
-            except Exception:
-                default_val = 0.0
-            user_input[col_name] = st.number_input(f"{col_name}", value=default_val)
+# =============================
+# 🔹 Model Comparison Table
+# =============================
+st.markdown("---")
+st.subheader("📊 Model Performance Comparison")
 
-    if st.button("🔮 Predict Now"):
-        input_df = pd.DataFrame([user_input])
+perf_df = pd.DataFrame({
+    "Model": performance.keys(),
+    "R² Score": [round(v["r2"], 4) for v in performance.values()],
+    "MSE": [round(v["mse"], 2) for v in performance.values()]
+}).sort_values(by="R² Score", ascending=False)
 
-        # ✅ Handle NaN in manual input too
-        input_df = input_df.fillna(input_df.mean(numeric_only=True))
-        input_df = input_df.fillna(0)
-
-        pred_value = model.predict(input_df)[0]
-        st.success(f"📈 Predicted {target}: {pred_value:.2f}")
-        st.info(f"🧠 Model Used: **{model_name}**")
-except Exception as e:
-    st.error(f"⚠️ Manual input prediction failed: {e}")
+st.table(perf_df)
 
 # =============================
 # 🔹 Footer
@@ -149,7 +160,7 @@ st.markdown(
     """
     <div style='text-align:center;'>
         <p>Developed with ❤️ by <b>Sumiya Ahasan</b></p>
-        <p style='font-size:13px;'>© 2025 Smart Share Market ML App | Auto Model with NaN Fix</p>
+        <p style='font-size:13px;'>© 2025 Smart Share Market ML App | Pipeline-Integrated Models</p>
     </div>
     """,
     unsafe_allow_html=True
