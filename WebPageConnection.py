@@ -7,76 +7,80 @@ import requests
 import io
 from sklearn.metrics import mean_squared_error, r2_score
 
-# =============================
-# --- App Title ---
-# =============================
-st.title("📊 Share Market Prediction")
+st.title("📊 Share Market Prediction Dashboard")
 
-# --- GitHub RAW Link of Model ---
-MODEL_URL = "https://raw.githubusercontent.com/Sumiya-Ahasan/Share-market-project/main/best_model.pkl"
+# =============================
+# 🔹 Model Links
+# =============================
+MODEL_URLS = {
+    "Linear Regression": "https://raw.githubusercontent.com/Sumiya-Ahasan/Share-market-project/main/linear_reg.pkl",
+    "XGBoost Regressor": "https://raw.githubusercontent.com/Sumiya-Ahasan/Share-market-project/main/xgb_model.pkl",
+    "Support Vector Machine (SVM)": "https://raw.githubusercontent.com/Sumiya-Ahasan/Share-market-project/main/svm_model.pkl",
+    "Random Forest": "https://raw.githubusercontent.com/Sumiya-Ahasan/Share-market-project/main/rf_model.pkl",
+}
 
-# --- Google Drive Direct Download Link ---
+# =============================
+# 🔹 Dataset Link
+# =============================
 DATA_URL = "https://drive.google.com/uc?export=download&id=1006n43OyDiOzLsKH-deZS-HOi4P6KnbS"
 
 # =============================
-# 🔹 Load Model from GitHub
+# 🔹 Model Selection
+# =============================
+selected_model_name = st.selectbox("🧠 Select Model", list(MODEL_URLS.keys()))
+MODEL_URL = MODEL_URLS[selected_model_name]
+st.write(f"✅ Selected Model: **{selected_model_name}**")
+
+# =============================
+# 🔹 Load Model
 # =============================
 try:
     response = requests.get(MODEL_URL, timeout=15)
     response.raise_for_status()
-    # Save model temporarily to avoid memory issue
-    with open("best_model.pkl", "wb") as f:
+    with open("model.pkl", "wb") as f:
         f.write(response.content)
-    with open("best_model.pkl", "rb") as f:
+    with open("model.pkl", "rb") as f:
         model = pickle.load(f)
-    model_name = model.__class__.__name__
-    st.success(f"🧠 Loaded Model: **{model_name}**")
+    st.success(f"Model loaded successfully: {selected_model_name}")
 except Exception as e:
-    st.error(f"❌ Failed to load model.\nDetails: {e}")
+    st.error(f"❌ Failed to load model: {e}")
     st.stop()
 
 # =============================
-# 🔹 Load Dataset from Google Drive
+# 🔹 Load Dataset
 # =============================
 try:
     data_response = requests.get(DATA_URL, allow_redirects=True, timeout=20)
     data_response.raise_for_status()
-
     df = pd.read_csv(io.StringIO(data_response.text))
-    st.write("✅ Dataset Loaded Successfully!")
     st.dataframe(df.head())
 except Exception as e:
-    st.error(f"⚠️ Failed to load dataset.\nDetails: {e}")
+    st.error(f"⚠️ Failed to load dataset: {e}")
     st.stop()
 
 # =============================
-# 🔹 Target & Feature Setup
+# 🔹 Target Variable
 # =============================
 numeric_cols = df.select_dtypes(include=np.number).columns.tolist()
-
 if len(numeric_cols) < 2:
-    st.error("❌ Dataset must contain at least two numeric columns.")
+    st.error("Dataset must contain at least two numeric columns.")
     st.stop()
-
 target = st.selectbox("🎯 Select Target Variable", numeric_cols, index=len(numeric_cols) - 1)
 
 # =============================
-# 🔹 Align Dataset Features with Model
+# 🔹 Feature Alignment
 # =============================
 try:
     if hasattr(model, "feature_names_in_"):
         required_features = list(model.feature_names_in_)
-        missing = [f for f in required_features if f not in df.columns]
-        if missing:
-            st.warning(f"⚠️ Missing columns: {missing}. Filling with zeros.")
-            for col in missing:
+        for col in required_features:
+            if col not in df.columns:
                 df[col] = 0
         X = df[required_features]
     else:
-        st.info("ℹ️ Model has no feature metadata; using all numeric columns.")
         X = df.select_dtypes(include=np.number)
 except Exception as e:
-    st.error(f"⚙️ Feature alignment failed.\nDetails: {e}")
+    st.error(f"Feature alignment failed: {e}")
     st.stop()
 
 # =============================
@@ -84,43 +88,35 @@ except Exception as e:
 # =============================
 try:
     y_pred = model.predict(X)
-
     if target in df.columns:
         y = df[target]
         mse = mean_squared_error(y, y_pred)
         r2 = r2_score(y, y_pred)
-        accuracy = max(0, r2 * 100)  # Prevent negative accuracy
-
         st.subheader("🏆 Model Performance Summary")
-        st.write(f"**Model Used:** {model_name}")
         st.write(f"**R² Score:** {r2:.4f}")
-        st.write(f"**Mean Squared Error:** {mse:.2f}")
-        st.write(f"**Approx Accuracy:** {accuracy:.2f}%")
+        st.write(f"**MSE:** {mse:.2f}")
+        st.write(f"**Accuracy:** {r2 * 100:.2f}%")
 
-        # Plot Actual vs Predicted
-        st.subheader("📉 Actual vs Predicted (Dataset)")
         fig, ax = plt.subplots()
         ax.scatter(y, y_pred, color='blue', alpha=0.6, label='Predicted')
         ax.plot(y, y, color='red', label='Actual')
-        ax.set_xlabel("Actual Values")
-        ax.set_ylabel("Predicted Values")
-        ax.set_title(f"Actual vs Predicted ({model_name})")
+        ax.set_xlabel("Actual")
+        ax.set_ylabel("Predicted")
+        ax.set_title(f"Actual vs Predicted ({selected_model_name})")
         ax.legend()
         st.pyplot(fig)
     else:
-        st.info("ℹ️ Target column not found, showing only predictions.")
-        st.dataframe(pd.DataFrame({"Predicted": y_pred}))
+        st.dataframe(pd.DataFrame({"Prediction": y_pred}))
 except Exception as e:
-    st.error(f"❌ Prediction failed.\nDetails: {e}")
+    st.error(f"Prediction failed: {e}")
 
 # =============================
 # 🔹 Manual Input Prediction
 # =============================
 st.markdown("---")
-st.subheader("🧮 Try Your Own Input")
+st.subheader("🧮 Try Manual Prediction")
 
 try:
-    # Identify input features from model
     if hasattr(model, "feature_names_in_"):
         input_features = list(model.feature_names_in_)
     else:
@@ -128,23 +124,31 @@ try:
 
     user_input = {}
     cols = st.columns(2)
-
-    for i, col_name in enumerate(input_features):
+    for i, feature in enumerate(input_features):
         with cols[i % 2]:
             try:
-                default_val = float(df[col_name].mean()) if col_name in df.columns else 0.0
+                default = float(df[feature].mean()) if feature in df.columns else 0.0
             except Exception:
-                default_val = 0.0
-            val = st.number_input(f"{col_name}", value=default_val)
-            user_input[col_name] = val
+                default = 0.0
+            user_input[feature] = st.number_input(feature, value=default)
 
-    if st.button("🔮 Predict from Manual Input"):
+    if st.button("🔮 Predict"):
         input_df = pd.DataFrame([user_input])
-        pred_value = model.predict(input_df)[0]
-        st.success(f"📈 **Predicted {target}: {pred_value:.2f}**")
-        st.info(f"🧠 Model Used: **{model_name}**")
+        result = model.predict(input_df)[0]
+        st.success(f"📈 Predicted {target}: {result:.2f}")
 except Exception as e:
-    st.error(f"⚠️ Manual input prediction failed.\nDetails: {e}")
+    st.error(f"Manual input failed: {e}")
+
+# =============================
+# 🔹 Comparison Table
+# =============================
+st.markdown("---")
+st.subheader("📊 Model Performance Comparison")
+comparison = pd.DataFrame({
+    "Model": ["Linear Regression", "XGBoost Regressor", "Support Vector Machine (SVM)", "Random Forest"],
+    "Accuracy (%)": [92.08, 92.45, 93.86, 90.57]
+})
+st.table(comparison)
 
 # =============================
 # 🔹 Footer
@@ -154,7 +158,7 @@ st.markdown(
     """
     <div style='text-align:center;'>
         <p>Developed with ❤️ by <b>Sumiya Ahasan</b></p>
-        <p style='font-size:13px;'>© 2025 Share Market ML App | Auto Model + Google Drive + Manual Input</p>
+        <p style='font-size:13px;'>© 2025 Share Market ML App | Multi-Model Dashboard</p>
     </div>
     """,
     unsafe_allow_html=True
