@@ -10,7 +10,7 @@ from sklearn.metrics import mean_squared_error, r2_score
 # =============================
 # --- App Title ---
 # =============================
-st.title("📊 Share Market Prediction (Auto Model + Data + Manual Input)")
+st.title("📊 Share Market Prediction ")
 
 # --- GitHub RAW Link of Model ---
 MODEL_URL = "https://raw.githubusercontent.com/Sumiya-Ahasan/Share-market-project/main/best_model.pkl"
@@ -22,11 +22,11 @@ DATA_URL = "https://drive.google.com/uc?export=download&id=1006n43OyDiOzLsKH-deZ
 # 🔹 Load Model from GitHub
 # =============================
 try:
-    st.info("📥 Downloading pretrained model from GitHub...")
     response = requests.get(MODEL_URL)
     response.raise_for_status()
     model = pickle.loads(response.content)
-    st.success("✅ Model loaded successfully from GitHub!")
+    model_name = model.__class__.__name__
+    st.info(f"🧠 Using Model: **{model_name}**")
 except Exception as e:
     st.error(f"❌ Failed to load model: {e}")
     st.stop()
@@ -35,11 +35,9 @@ except Exception as e:
 # 🔹 Load Dataset from Google Drive
 # =============================
 try:
-    st.info("📊 Loading dataset from Google Drive...")
     data_response = requests.get(DATA_URL)
     data_response.raise_for_status()
     df = pd.read_csv(io.StringIO(data_response.text))
-    st.success("✅ Dataset loaded successfully from Google Drive!")
     st.dataframe(df.head())
 except Exception as e:
     st.error(f"⚠️ Failed to load dataset: {e}")
@@ -86,6 +84,7 @@ try:
         accuracy = r2 * 100
 
         st.subheader("🏆 Model Performance Summary")
+        st.write(f"**Model Used:** {model_name}")
         st.write(f"**R² Score:** {r2:.4f}")
         st.write(f"**Mean Squared Error:** {mse:.2f}")
         st.write(f"**Accuracy:** {accuracy:.2f}%")
@@ -97,7 +96,7 @@ try:
         ax.plot(y, y, color='red', label='Actual')
         ax.set_xlabel("Actual Values")
         ax.set_ylabel("Predicted Values")
-        ax.set_title("Actual vs Predicted (Pretrained Model)")
+        ax.set_title(f"Actual vs Predicted ({model_name})")
         ax.legend()
         st.pyplot(fig)
     else:
@@ -133,6 +132,7 @@ try:
         input_df = pd.DataFrame([user_input])
         pred_value = model.predict(input_df)[0]
         st.success(f"📈 **Predicted {target}: {pred_value:.2f}**")
+        st.info(f"🧠 Model Used: **{model_name}**")
 
 except Exception as e:
     st.error(f"⚠️ Manual input prediction failed: {e}")
@@ -144,7 +144,7 @@ st.markdown("---")
 st.markdown(
     """
     <div style='text-align:center;'>
-        <p>Developed with ❤️ by <b>Sumiya Ahasan</b></p>
+        <p>Developed with  by <b>Sumiya Ahasan</b></p>
         <p style='font-size:13px;'>© 2025 Share Market ML App | Auto Model + Google Drive + Manual Input</p>
     </div>
     """,
