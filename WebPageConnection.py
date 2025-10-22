@@ -3,30 +3,25 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import pickle
-import requests
 import io
+import requests
 from sklearn.metrics import mean_squared_error, r2_score
 
 # =============================
 # --- App Config
 # =============================
-st.set_page_config(page_title="Share Market Prediction", page_icon="📊", layout="wide")
-st.title("📊 Share Market Prediction (Pretrained Model)")
+st.set_page_config(page_title="📊 Share Market Prediction", page_icon="💹", layout="wide")
+st.title("📊 Share Market Prediction App (Local Model)")
 
 # =============================
-# --- Links (Update if Needed)
+# --- Load Pre-trained Model (from uploaded file)
 # =============================
-MODEL_URL = "https://raw.githubusercontent.com/Sumiya-Ahasan/Share-market-project/main/best_model.pkl"
-DATA_URL = "https://drive.google.com/uc?export=download&id=1006n43OyDiOzLsKH-deZS-HOi4P6KnbS"
+st.subheader("🧠 Loading Trained Model...")
+uploaded_model = "best_model.pkl"  # <-- your uploaded model file name
 
-# =============================
-# --- Load Pretrained Model
-# =============================
 try:
-    st.subheader("🧠 Loading Trained Model...")
-    response = requests.get(MODEL_URL, timeout=25)
-    response.raise_for_status()
-    model = pickle.loads(response.content)
+    with open(uploaded_model, "rb") as f:
+        model = pickle.load(f)
     model_name = model.__class__.__name__
     st.success(f"✅ Model Loaded Successfully: **{model_name}**")
 except Exception as e:
@@ -34,15 +29,17 @@ except Exception as e:
     st.stop()
 
 # =============================
-# --- Load Dataset
+# --- Load Dataset from Google Drive
 # =============================
-try:
-    st.subheader("📥 Loading Dataset...")
-    data_response = requests.get(DATA_URL, allow_redirects=True, timeout=25)
-    data_response.raise_for_status()
-    df = pd.read_csv(io.StringIO(data_response.text))
+st.subheader("📥 Loading Dataset...")
+DATA_URL = "https://drive.google.com/uc?export=download&id=1006n43OyDiOzLsKH-deZS-HOi4P6KnbS"
 
-    # Clean data (handle missing)
+try:
+    response = requests.get(DATA_URL, timeout=25)
+    response.raise_for_status()
+    df = pd.read_csv(io.StringIO(response.text))
+
+    # Handle missing values
     df = df.fillna(df.mean(numeric_only=True))
     df = df.fillna(0)
 
@@ -53,11 +50,11 @@ except Exception as e:
     st.stop()
 
 # =============================
-# --- Select Target Column
+# --- Target Selection
 # =============================
 numeric_cols = df.select_dtypes(include=np.number).columns.tolist()
-if not numeric_cols:
-    st.error("❌ Dataset must contain numeric columns for prediction.")
+if len(numeric_cols) < 2:
+    st.error("❌ Dataset must contain at least two numeric columns.")
     st.stop()
 
 target = st.selectbox("🎯 Select Target Variable", numeric_cols, index=len(numeric_cols) - 1)
@@ -78,28 +75,27 @@ try:
         st.info("ℹ️ Model has no feature metadata; using all numeric columns.")
         X = df.select_dtypes(include=np.number)
 except Exception as e:
-    st.error(f"Feature alignment failed: {e}")
+    st.error(f"⚠️ Feature alignment failed: {e}")
     st.stop()
 
 # =============================
-# --- Run Predictions
+# --- Prediction
 # =============================
+st.subheader("📈 Prediction & Evaluation")
+
 try:
-    st.subheader("📈 Running Predictions...")
     y_pred = model.predict(X)
 
     if target in df.columns:
-        y = df[target]
-        # Remove NaN in y if any
-        y = y.fillna(y.mean())
+        y = df[target].fillna(df[target].mean())
         mse = mean_squared_error(y, y_pred)
         r2 = r2_score(y, y_pred)
-        accuracy = r2 * 100
+        acc = r2 * 100
 
         st.write(f"**Model Used:** {model_name}")
         st.write(f"**R² Score:** {r2:.4f}")
         st.write(f"**Mean Squared Error:** {mse:.2f}")
-        st.write(f"**Approx Accuracy:** {accuracy:.2f}%")
+        st.write(f"**Approx Accuracy:** {acc:.2f}%")
 
         # --- Plot ---
         fig, ax = plt.subplots()
@@ -154,7 +150,7 @@ st.markdown(
     """
     <div style='text-align:center;'>
         <p>Developed with ❤️ by <b>Sumiya Ahasan</b></p>
-        <p style='font-size:13px;'>© 2025 Share Market ML App | Pretrained Model Loader</p>
+        <p style='font-size:13px;'>© 2025 Share Market ML App | Using Local Trained Model</p>
     </div>
     """,
     unsafe_allow_html=True
