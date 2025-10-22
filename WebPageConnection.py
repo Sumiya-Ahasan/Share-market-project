@@ -21,15 +21,6 @@ except Exception as e:
     st.error(f"❌ Failed to load model: {e}")
     st.stop()
 
-# --- Upload Dataset ---
-uploaded_file = st.file_uploader("📤 Upload your dataset (CSV format)", type=["csv"])
-if uploaded_file is not None:
-    df = pd.read_csv(uploaded_file)
-    st.success("✅ Dataset uploaded successfully!")
-    st.dataframe(df.head())
-else:
-    st.warning("Please upload a dataset to continue.")
-    st.stop()
 
 # --- Select Features & Target ---
 numeric_cols = df.select_dtypes(include=np.number).columns.tolist()
