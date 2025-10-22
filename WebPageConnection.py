@@ -8,7 +8,7 @@ import io
 from sklearn.metrics import mean_squared_error, r2_score
 
 # --- App Title ---
-st.title("📊 Share Market Prediction (Pretrained Model from GitHub + Dataset from Google Drive)")
+st.title("📊 Share Market Prediction ")
 
 # --- GitHub RAW Link of Model ---
 MODEL_URL = "https://raw.githubusercontent.com/Sumiya-Ahasan/Share-market-project/main/best_model.pkl"
@@ -23,7 +23,6 @@ try:
     response = requests.get(MODEL_URL)
     response.raise_for_status()
     model = pickle.loads(response.content)
-    st.success("✅ Model loaded successfully from GitHub!")
 except Exception as e:
     st.error(f"❌ Failed to load model: {e}")
     st.stop()
@@ -35,7 +34,6 @@ try:
     data_response = requests.get(DATA_URL)
     data_response.raise_for_status()
     df = pd.read_csv(io.StringIO(data_response.text))
-    st.success("✅ Dataset loaded successfully from Google Drive!")
     st.dataframe(df.head())
 except Exception as e:
     st.error(f"⚠️ Failed to load dataset: {e}")
