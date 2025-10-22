@@ -1,100 +1,76 @@
-import streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import pickle
-import requests
-import io
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.pipeline import Pipeline
 from sklearn.metrics import mean_squared_error, r2_score
+import pickle
 
-# --- App Title ---
-st.title("📊 Share Market Prediction (Pretrained Model from GitHub + Dataset from Google Drive)")
-
-# --- GitHub RAW Link of Model ---
-MODEL_URL = "https://raw.githubusercontent.com/Sumiya-Ahasan/Share-market-project/main/best_model.pkl"
-
-# --- Google Drive Direct Download Link ---
+# =====================================================
+# 🔹 1. Load dataset (Google Drive or local CSV)
+# =====================================================
 DATA_URL = "https://drive.google.com/uc?export=download&id=1006n43OyDiOzLsKH-deZS-HOi4P6KnbS"
 
-# =============================
-# 🔹 Load Model from GitHub
-# =============================
-try:
-    st.info("📥 Downloading pretrained model from GitHub...")
-    response = requests.get(MODEL_URL)
-    response.raise_for_status()
-    model = pickle.loads(response.content)
-    st.success("✅ Model loaded successfully from GitHub!")
-except Exception as e:
-    st.error(f"❌ Failed to load model: {e}")
-    st.stop()
+print("📥 Loading dataset from Google Drive...")
+df = pd.read_csv(DATA_URL)
+print("✅ Dataset loaded successfully!")
 
-# =============================
-# 🔹 Load Dataset from Google Drive
-# =============================
-try:
-    st.info("📊 Loading dataset from Google Drive...")
-    data_response = requests.get(DATA_URL)
-    data_response.raise_for_status()
-    df = pd.read_csv(io.StringIO(data_response.text))
-    st.success("✅ Dataset loaded successfully from Google Drive!")
-    st.dataframe(df.head())
-except Exception as e:
-    st.error(f"⚠️ Failed to load dataset: {e}")
-    st.stop()
+# =====================================================
+# 🔹 2. Basic preprocessing / feature engineering
+# =====================================================
+# উদাহরণ: ধরো তুমি share market ডেটা নিয়ে কাজ করছো
+# আমরা কিছু নতুন feature তৈরি করব যাতে model better হয়
 
-# =============================
-# 🔹 Feature and Target Selection
-# =============================
-numeric_cols = df.select_dtypes(include=np.number).columns.tolist()
-if len(numeric_cols) < 2:
-    st.error("Dataset must contain at least two numeric columns for regression.")
-    st.stop()
+if "Close" in df.columns:
+    df["Close_lag_1"] = df["Close"].shift(1)
+    df["Return_1d"] = df["Close"].pct_change()
+    df["MA_5"] = df["Close"].rolling(window=5).mean()
+    df["Volatility_5"] = df["Close"].rolling(window=5).std()
 
-target = st.selectbox("🎯 Select Target Variable", numeric_cols, index=len(numeric_cols) - 1)
-features = [col for col in numeric_cols if col != target]
+# Missing value fill
+df = df.fillna(0)
 
-X = df[features]
+# =====================================================
+# 🔹 3. Select features and target
+# =====================================================
+target = "Close"  # Change if needed
+feature_cols = [c for c in df.columns if c != target and df[c].dtype != "O"]
+
+X = df[feature_cols]
 y = df[target]
 
-# =============================
-# 🔹 Prediction and Evaluation
-# =============================
-try:
-    y_pred = model.predict(X)
-    mse = mean_squared_error(y, y_pred)
-    r2 = r2_score(y, y_pred)
-    accuracy = r2 * 100
+print(f"✅ Selected {len(feature_cols)} features: {feature_cols}")
 
-    st.success("🏆 Model Performance Summary")
-    st.write(f"**R² Score:** {r2:.4f}")
-    st.write(f"**Mean Squared Error:** {mse:.2f}")
-    st.write(f"**Accuracy:** {accuracy:.2f}%")
+# =====================================================
+# 🔹 4. Train-Test Split
+# =====================================================
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-    # --- Plot Actual vs Predicted ---
-    st.subheader("📉 Actual vs Predicted (Best Model)")
-    fig, ax = plt.subplots()
-    ax.scatter(y, y_pred, color='blue', alpha=0.6, label='Predicted')
-    ax.plot(y, y, color='red', label='Actual')
-    ax.set_xlabel("Actual Values")
-    ax.set_ylabel("Predicted Values")
-    ax.set_title("Actual vs Predicted (Pretrained Model)")
-    ax.legend()
-    st.pyplot(fig)
+# =====================================================
+# 🔹 5. Build pipeline (Scaler + RandomForest)
+# =====================================================
+pipeline = Pipeline([
+    ("scaler", StandardScaler()),
+    ("model", RandomForestRegressor(n_estimators=200, random_state=42))
+])
 
-except Exception as e:
-    st.error(f"❌ Prediction failed: {e}")
+print("🚀 Training model...")
+pipeline.fit(X_train, y_train)
 
-# =============================
-# 🔹 Footer
-# =============================
-st.markdown("---")
-st.markdown(
-    """
-    <div style='text-align:center;'>
-        <p>Developed with ❤️ by <b>Sumiya Ahasan</b></p>
-        <p style='font-size:13px;'>© 2025 Share Market ML App | Auto Model + Data Integration</p>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+# =====================================================
+# 🔹 6. Evaluate
+# =====================================================
+y_pred = pipeline.predict(X_test)
+r2 = r2_score(y_test, y_pred)
+mse = mean_squared_error(y_test, y_pred)
+print(f"📊 Model Evaluation -> R²: {r2:.4f}, MSE: {mse:.2f}")
+
+# =====================================================
+# 🔹 7. Save model (pipeline includes preprocessing)
+# =====================================================
+with open("best_model.pkl", "wb") as f:
+    pickle.dump(pipeline, f)
+
+print("✅ Model saved successfully as best_model.pkl")
+print("🧠 This model includes feature scaling + feature names in metadata.")
