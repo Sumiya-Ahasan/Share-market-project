@@ -20,7 +20,6 @@ DATA_URL = "https://drive.google.com/uc?export=download&id=1006n43OyDiOzLsKH-deZ
 # 🔹 Load Model from GitHub
 # =============================
 try:
-    st.info("📥 Downloading pretrained model from GitHub...")
     response = requests.get(MODEL_URL)
     response.raise_for_status()
     model = pickle.loads(response.content)
@@ -33,7 +32,6 @@ except Exception as e:
 # 🔹 Load Dataset from Google Drive
 # =============================
 try:
-    st.info("📊 Loading dataset from Google Drive...")
     data_response = requests.get(DATA_URL)
     data_response.raise_for_status()
     df = pd.read_csv(io.StringIO(data_response.text))
