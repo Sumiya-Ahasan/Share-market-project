@@ -80,7 +80,7 @@ models = {
 
 # --- Train and Evaluate Models ---
 results = {}
-st.info("🚀 Training models and comparing performance...")
+st.info("🚀 Training models comparing performance...")
 
 for name, model in models.items():
     model.fit(X_train, y_train)
