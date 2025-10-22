@@ -19,7 +19,7 @@ from xgboost import XGBRegressor
 # --- Page Setup
 # =============================
 st.set_page_config(page_title="Smart Share Market Prediction", page_icon="📊", layout="wide")
-st.title("🤖 Smart Share Market Prediction (Handles Numeric + Text Data)")
+st.title("🤖 Smart Share Market Prediction (Fully Auto & Error-Free)")
 
 # =============================
 # --- Load Dataset
@@ -31,6 +31,7 @@ try:
     response = requests.get(DATA_URL, allow_redirects=True, timeout=25)
     response.raise_for_status()
     df = pd.read_csv(io.StringIO(response.text))
+
     st.success("✅ Dataset Loaded Successfully!")
     st.dataframe(df.head())
 except Exception as e:
@@ -43,11 +44,19 @@ except Exception as e:
 all_cols = df.columns.tolist()
 target = st.selectbox("🎯 Select Target Variable", all_cols, index=len(all_cols) - 1)
 
+# --- Drop NaN rows where target missing ---
+df = df.dropna(subset=[target])
+
+# --- Separate Features & Target ---
 X = df.drop(columns=[target])
 y = df[target]
 
+# --- Handle NaN in target (safety) ---
+if y.isna().sum() > 0:
+    y = y.fillna(y.mean())
+
 # =============================
-# --- Separate Numeric & Categorical Columns
+# --- Identify Numeric & Categorical Columns
 # =============================
 numeric_features = X.select_dtypes(include=["int64", "float64"]).columns.tolist()
 categorical_features = X.select_dtypes(include=["object", "category"]).columns.tolist()
@@ -82,7 +91,7 @@ pipelines = {
     ]),
     "XGBoost Regressor": Pipeline([
         ("preprocessor", preprocessor),
-        ("model", XGBRegressor(random_state=42, n_estimators=200))
+        ("model", XGBRegressor(random_state=42, n_estimators=200, verbosity=0))
     ]),
     "Support Vector Machine (SVM)": Pipeline([
         ("preprocessor", preprocessor),
@@ -95,7 +104,7 @@ pipelines = {
 }
 
 # =============================
-# --- Train and Evaluate Models
+# --- Train & Evaluate Models
 # =============================
 st.subheader("🧠 Training and Evaluating Models...")
 
@@ -150,8 +159,11 @@ user_input = {}
 cols = st.columns(2)
 for i, col_name in enumerate(X.columns):
     with cols[i % 2]:
-        value = st.text_input(f"{col_name}", value=str(df[col_name].iloc[0]) if not pd.isna(df[col_name].iloc[0]) else "")
-        user_input[col_name] = value
+        sample_val = df[col_name].iloc[0]
+        if isinstance(sample_val, (int, float)):
+            user_input[col_name] = st.number_input(f"{col_name}", value=float(df[col_name].mean()))
+        else:
+            user_input[col_name] = st.text_input(f"{col_name}", value=str(sample_val))
 
 if st.button("🔮 Predict Automatically"):
     input_df = pd.DataFrame([user_input])
@@ -181,7 +193,7 @@ st.markdown(
     """
     <div style='text-align:center;'>
         <p>Developed with ❤️ by <b>Sumiya Ahasan</b></p>
-        <p style='font-size:13px;'>© 2025 Smart Share Market ML App | Auto Pipeline for Mixed Data</p>
+        <p style='font-size:13px;'>© 2025 Smart Share Market ML App | Fully Auto Pipeline Version</p>
     </div>
     """,
     unsafe_allow_html=True
